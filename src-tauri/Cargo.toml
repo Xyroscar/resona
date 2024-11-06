@@ -1,11 +1,11 @@
 [package]
-name = "api-tester"
+name = "Resona"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
 repository = ""
-default-run = "api-tester"
+default-run = "resona"
 edition = "2021"
 rust-version = "1.60"
 

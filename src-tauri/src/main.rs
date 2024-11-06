@@ -1,13 +1,15 @@
-mod api;
 mod models;
 mod storage;
 mod commands;
+mod client;
 
+use commands::handlers as h;
 use storage::Storage;
 use tauri::Manager;
 use std::sync::Mutex;
 
 fn main() {
+    let handlers = h();
     tauri::Builder::default()
         .setup(|app| {
             let app_dir = app.path().app_data_dir()
@@ -19,17 +21,7 @@ fn main() {
             app.manage(Mutex::new(storage));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::create_workspace,
-            commands::get_workspaces,
-            commands::get_workspace,
-            commands::update_workspace,
-            commands::delete_workspace,
-            commands::create_collection,
-            commands::get_workspace_collections,
-            commands::update_collection,
-            commands::delete_collection,
-        ])
+        .invoke_handler(handlers)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

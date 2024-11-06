@@ -59,7 +59,7 @@ pub struct Storage {
 
 impl Storage {
     pub fn new(app_dir: PathBuf) -> rusqlite::Result<Self> {
-        let db_path = app_dir.join("api-client.db");
+        let db_path = app_dir.join("resona.db");
         let data_dir = app_dir.join("data");
 
         fs::create_dir_all(&data_dir).map_err(|e| rusqlite::Error::InvalidPath(data_dir.clone()))?;
