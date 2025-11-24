@@ -12,6 +12,7 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { goto } from "$app/navigation";
 
   $effect(() => {
     get_workspaces().then((ws) => {
@@ -46,6 +47,10 @@
     workspaceName = workspace.Name ?? "";
     workspaceDescription = workspace.Description ?? "";
     dialogOpen = true;
+  }
+
+  function handleWorkspaceClick(id: string) {
+    goto(`/workspaces/${id}`)
   }
 
   async function handleDialogSubmit() {
@@ -123,7 +128,7 @@
               </Card.Description>
             </Card.Header>
             <Card.Footer class="flex items-center justify-center gap-2">
-              <Button size="sm" class="justify-center">Open</Button>
+              <Button size="sm" class="justify-center" onclick={() => handleWorkspaceClick(workspace.Id)}>Open</Button>
               <Button
                 size="sm"
                 class="justify-center"
