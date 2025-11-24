@@ -2,5 +2,10 @@
   "svelte.enable-ts-plugin": true,
   "files.associations": {
     "*.css": "tailwindcss"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "[svelte]": {
+    "editor.defaultFormatter": "svelte.svelte-vscode"
   }
 }
