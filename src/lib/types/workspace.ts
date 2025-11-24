@@ -1,4 +1,5 @@
 export type Workspace = {
-    Id: string,
-    Name: string,
-}
+  Id: string;
+  Name: string;
+  Description: string;
+};
