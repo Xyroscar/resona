@@ -1,75 +1,156 @@
 <script lang="ts">
-  import { workspaces } from '$lib/stores/workspace';
-  import { onMount } from 'svelte';
-  import WorkspaceCard from '$lib/components/WorkspaceCard.svelte';
-  import WorkspaceModal from '$lib/components/modals/WorkspaceModal.svelte';
+  import { invoke } from "@tauri-apps/api/core";
 
-  let showCreateModal = false;
-  let loading = true;
-  let error: string | null = null;
+  let name = $state("");
+  let greetMsg = $state("");
 
-  onMount(async () => {
-    try {
-      await workspaces.loadWorkspaces();
-    } catch (err) {
-      console.error('Failed to load workspaces:', err);
-      error = 'Failed to load workspaces';
-    } finally {
-      loading = false;
-    }
-  });
+  async function greet(event: Event) {
+    event.preventDefault();
+    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+    greetMsg = await invoke("greet", { name });
+  }
 </script>
 
-<div class="container mx-auto px-6 py-8 max-w-7xl">
-  <div class="flex justify-between items-center mb-8">
-    <div>
-      <h1 class="text-2xl font-bold">Workspaces</h1>
-      <p class="text-base-content/70">Manage your API collections and environments</p>
-    </div>
-    <button 
-      class="btn btn-primary"
-      on:click={() => showCreateModal = true}
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-      </svg>
-      New Workspace
-    </button>
+<main class="container">
+  <h1>Welcome to Tauri + Svelte</h1>
+
+  <div class="row">
+    <a href="https://vitejs.dev" target="_blank">
+      <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
+    </a>
+    <a href="https://tauri.app" target="_blank">
+      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
+    </a>
+    <a href="https://kit.svelte.dev" target="_blank">
+      <img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
+    </a>
   </div>
+  <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
 
-  {#if loading}
-    <div class="flex justify-center py-16">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
-  {:else if error}
-    <div class="alert alert-error">
-      <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      <span>{error}</span>
-    </div>
-  {:else if $workspaces.length === 0}
-    <div class="flex flex-col items-center justify-center py-16 text-center">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-base-content/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-      <h3 class="mt-4 text-lg font-medium">No workspaces yet</h3>
-      <p class="mt-1 text-base-content/70">Create a workspace to get started with your API collections</p>
-      <button 
-        class="btn btn-primary mt-4"
-        on:click={() => showCreateModal = true}
-      >
-        Create Your First Workspace
-      </button>
-    </div>
-  {:else}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {#each $workspaces as workspace}
-        <WorkspaceCard {workspace} />
-      {/each}
-    </div>
-  {/if}
-</div>
+  <form class="row" onsubmit={greet}>
+    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
+    <button type="submit">Greet</button>
+  </form>
+  <p>{greetMsg}</p>
+</main>
 
-<WorkspaceModal 
-  show={showCreateModal}
-  on:close={() => showCreateModal = false}
-/>
+<style>
+.logo.vite:hover {
+  filter: drop-shadow(0 0 2em #747bff);
+}
+
+.logo.svelte-kit:hover {
+  filter: drop-shadow(0 0 2em #ff3e00);
+}
+
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+
+  color: #0f0f0f;
+  background-color: #f6f6f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+.container {
+  margin: 0;
+  padding-top: 10vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: 0.75s;
+}
+
+.logo.tauri:hover {
+  filter: drop-shadow(0 0 2em #24c8db);
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #535bf2;
+}
+
+h1 {
+  text-align: center;
+}
+
+input,
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  color: #0f0f0f;
+  background-color: #ffffff;
+  transition: border-color 0.25s;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #396cd8;
+}
+button:active {
+  border-color: #396cd8;
+  background-color: #e8e8e8;
+}
+
+input,
+button {
+  outline: none;
+}
+
+#greet-input {
+  margin-right: 5px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #f6f6f6;
+    background-color: #2f2f2f;
+  }
+
+  a:hover {
+    color: #24c8db;
+  }
+
+  input,
+  button {
+    color: #ffffff;
+    background-color: #0f0f0f98;
+  }
+  button:active {
+    background-color: #0f0f0f69;
+  }
+}
+
+</style>
