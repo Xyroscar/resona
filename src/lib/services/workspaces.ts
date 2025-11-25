@@ -52,6 +52,10 @@ export async function get_workspaces(): Promise<Workspace[]> {
   return convert_to_list(ws);
 }
 
+export async function get_workspace(id: string): Promise<Workspace | null> {
+  return ws.get(id) ?? null;
+}
+
 export async function update_workspace(workspace: Workspace): Promise<boolean> {
   let w = ws.get(workspace.Id);
   if (w != undefined) {
