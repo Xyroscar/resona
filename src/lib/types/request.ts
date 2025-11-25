@@ -7,6 +7,15 @@ export type HttpMethod =
   | "HEAD"
   | "OPTIONS";
 
+export type BodyType =
+  | "none"
+  | "json"
+  | "xml"
+  | "text"
+  | "html"
+  | "form-data"
+  | "x-www-form-urlencoded";
+
 export type RequestHeader = {
   key: string;
   value: string;
@@ -19,6 +28,13 @@ export type RequestParam = {
   enabled: boolean;
 };
 
+export type FormDataItem = {
+  key: string;
+  value: string;
+  type: "text" | "file";
+  enabled: boolean;
+};
+
 export type Request = {
   id: string;
   name: string;
@@ -26,7 +42,9 @@ export type Request = {
   url: string;
   headers: RequestHeader[];
   params: RequestParam[];
+  bodyType: BodyType;
   body: string;
+  formData: FormDataItem[];
   collectionId: string | null;
   workspaceId: string;
 };

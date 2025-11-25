@@ -2,20 +2,26 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
   import SendIcon from "@lucide/svelte/icons/send";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
-  import type { Request, HttpMethod } from "$lib/types/request";
+  import XIcon from "@lucide/svelte/icons/x";
+  import CodeEditor from "./code-editor.svelte";
+  import VariableInput from "./variable-input.svelte";
+  import type { Request, HttpMethod, BodyType } from "$lib/types/request";
+  import type { ResolvedVariable } from "$lib/types/variable";
 
   type Props = {
     request: Request;
+    variables?: ResolvedVariable[];
     onSend: (request: Request) => void;
     onUpdate: (request: Request) => void;
   };
 
-  let { request, onSend, onUpdate }: Props = $props();
+  let { request, variables = [], onSend, onUpdate }: Props = $props();
 
   let localRequest = $state<Request>({ ...request });
-  let activeTab = $state<"params" | "headers" | "body">("params");
 
   $effect(() => {
     localRequest = { ...request };
@@ -29,6 +35,15 @@
     "DELETE",
     "HEAD",
     "OPTIONS",
+  ];
+  const bodyTypes: { value: BodyType; label: string }[] = [
+    { value: "none", label: "None" },
+    { value: "json", label: "JSON" },
+    { value: "xml", label: "XML" },
+    { value: "text", label: "Text" },
+    { value: "html", label: "HTML" },
+    { value: "form-data", label: "Form Data" },
+    { value: "x-www-form-urlencoded", label: "URL Encoded" },
   ];
 
   function getMethodColor(method: string): string {
@@ -49,14 +64,38 @@
     onUpdate(localRequest);
   }
 
-  function handleUrlChange(e: Event) {
-    const target = e.target as HTMLInputElement;
-    localRequest.url = target.value;
+  function handleUrlChange(value: string) {
+    localRequest.url = value;
+    onUpdate(localRequest);
+  }
+
+  function handleBodyTypeChange(value: BodyType) {
+    localRequest.bodyType = value;
+    onUpdate(localRequest);
+  }
+
+  function handleBodyChange(value: string) {
+    localRequest.body = value;
     onUpdate(localRequest);
   }
 
   function handleSend() {
     onSend(localRequest);
+  }
+
+  function formatBody() {
+    if (localRequest.bodyType === "json") {
+      try {
+        localRequest.body = JSON.stringify(
+          JSON.parse(localRequest.body),
+          null,
+          2
+        );
+        onUpdate(localRequest);
+      } catch {
+        // Invalid JSON, don't format
+      }
+    }
   }
 </script>
 
@@ -89,10 +128,11 @@
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
-      <Input
-        class="flex-1 font-mono text-sm"
-        placeholder="Enter request URL"
+      <VariableInput
+        class="flex-1"
+        placeholder={"Enter request URL (use {{VAR_NAME}} for variables)"}
         value={localRequest.url}
+        {variables}
         oninput={handleUrlChange}
       />
 
@@ -103,159 +143,229 @@
     </div>
   </div>
 
-  <div class="flex-1 flex flex-col overflow-hidden">
-    <div class="border-b">
-      <div class="flex">
-        <button
-          class={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "params"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onclick={() => (activeTab = "params")}
-        >
-          Params
-        </button>
-        <button
-          class={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "headers"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onclick={() => (activeTab = "headers")}
-        >
-          Headers
-        </button>
-        <button
-          class={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "body"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onclick={() => (activeTab = "body")}
-        >
-          Body
-        </button>
-      </div>
-    </div>
+  <Tabs.Root value="params" class="flex-1 flex flex-col overflow-hidden">
+    <Tabs.List
+      class="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto"
+    >
+      <Tabs.Trigger
+        value="params"
+        class="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+      >
+        Params
+      </Tabs.Trigger>
+      <Tabs.Trigger
+        value="headers"
+        class="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+      >
+        Headers
+      </Tabs.Trigger>
+      <Tabs.Trigger
+        value="body"
+        class="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+      >
+        Body
+      </Tabs.Trigger>
+    </Tabs.List>
 
-    <div class="flex-1 p-4 overflow-auto">
-      {#if activeTab === "params"}
-        <div class="space-y-2">
-          {#each localRequest.params as param, i (i)}
-            <div class="flex items-center gap-2">
-              <Input
-                class="flex-1"
-                placeholder="Key"
-                value={param.key}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  localRequest.params[i].key = target.value;
-                  onUpdate(localRequest);
-                }}
-              />
-              <Input
-                class="flex-1"
-                placeholder="Value"
-                value={param.value}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  localRequest.params[i].value = target.value;
-                  onUpdate(localRequest);
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => {
-                  localRequest.params = localRequest.params.filter(
-                    (_, idx) => idx !== i
-                  );
-                  onUpdate(localRequest);
-                }}
-              >
-                ×
-              </Button>
-            </div>
-          {/each}
-          <Button
-            variant="outline"
-            size="sm"
-            onclick={() => {
-              localRequest.params = [
-                ...localRequest.params,
-                { key: "", value: "", enabled: true },
-              ];
-              onUpdate(localRequest);
-            }}
-          >
-            Add Parameter
-          </Button>
-        </div>
-      {:else if activeTab === "headers"}
-        <div class="space-y-2">
-          {#each localRequest.headers as header, i (i)}
-            <div class="flex items-center gap-2">
-              <Input
-                class="flex-1"
-                placeholder="Key"
-                value={header.key}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  localRequest.headers[i].key = target.value;
-                  onUpdate(localRequest);
-                }}
-              />
-              <Input
-                class="flex-1"
-                placeholder="Value"
-                value={header.value}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  localRequest.headers[i].value = target.value;
-                  onUpdate(localRequest);
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => {
-                  localRequest.headers = localRequest.headers.filter(
-                    (_, idx) => idx !== i
-                  );
-                  onUpdate(localRequest);
-                }}
-              >
-                ×
-              </Button>
-            </div>
-          {/each}
-          <Button
-            variant="outline"
-            size="sm"
-            onclick={() => {
-              localRequest.headers = [
-                ...localRequest.headers,
-                { key: "", value: "", enabled: true },
-              ];
-              onUpdate(localRequest);
-            }}
-          >
-            Add Header
-          </Button>
-        </div>
-      {:else if activeTab === "body"}
-        <textarea
-          class="w-full h-64 p-3 font-mono text-sm border rounded-md bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="Request body (JSON, XML, etc.)"
-          value={localRequest.body}
-          oninput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            localRequest.body = target.value;
+    <Tabs.Content value="params" class="flex-1 m-0 p-4 overflow-auto">
+      <div class="space-y-2">
+        {#each localRequest.params as param, i (i)}
+          <div class="flex items-center gap-2">
+            <VariableInput
+              class="flex-1"
+              placeholder="Key"
+              value={param.key}
+              {variables}
+              oninput={(value) => {
+                localRequest.params[i].key = value;
+                onUpdate(localRequest);
+              }}
+            />
+            <VariableInput
+              class="flex-1"
+              placeholder="Value"
+              value={param.value}
+              {variables}
+              oninput={(value) => {
+                localRequest.params[i].value = value;
+                onUpdate(localRequest);
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onclick={() => {
+                localRequest.params = localRequest.params.filter(
+                  (_, idx) => idx !== i
+                );
+                onUpdate(localRequest);
+              }}
+            >
+              <XIcon class="size-4" />
+            </Button>
+          </div>
+        {/each}
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => {
+            localRequest.params = [
+              ...localRequest.params,
+              { key: "", value: "", enabled: true },
+            ];
             onUpdate(localRequest);
           }}
-        ></textarea>
-      {/if}
-    </div>
-  </div>
+        >
+          Add Parameter
+        </Button>
+      </div>
+    </Tabs.Content>
+
+    <Tabs.Content value="headers" class="flex-1 m-0 p-4 overflow-auto">
+      <div class="space-y-2">
+        {#each localRequest.headers as header, i (i)}
+          <div class="flex items-center gap-2">
+            <VariableInput
+              class="flex-1"
+              placeholder="Key"
+              value={header.key}
+              {variables}
+              oninput={(value) => {
+                localRequest.headers[i].key = value;
+                onUpdate(localRequest);
+              }}
+            />
+            <VariableInput
+              class="flex-1"
+              placeholder="Value"
+              value={header.value}
+              {variables}
+              oninput={(value) => {
+                localRequest.headers[i].value = value;
+                onUpdate(localRequest);
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onclick={() => {
+                localRequest.headers = localRequest.headers.filter(
+                  (_, idx) => idx !== i
+                );
+                onUpdate(localRequest);
+              }}
+            >
+              <XIcon class="size-4" />
+            </Button>
+          </div>
+        {/each}
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => {
+            localRequest.headers = [
+              ...localRequest.headers,
+              { key: "", value: "", enabled: true },
+            ];
+            onUpdate(localRequest);
+          }}
+        >
+          Add Header
+        </Button>
+      </div>
+    </Tabs.Content>
+
+    <Tabs.Content value="body" class="flex-1 m-0 flex flex-col overflow-hidden">
+      <div class="flex items-center gap-2 p-2 border-b bg-muted/30">
+        <span class="text-sm text-muted-foreground">Content Type:</span>
+        <Select.Root
+          type="single"
+          value={localRequest.bodyType}
+          onValueChange={(value) => handleBodyTypeChange(value as BodyType)}
+        >
+          <Select.Trigger class="w-40 h-8">
+            {bodyTypes.find((t) => t.value === localRequest.bodyType)?.label ||
+              "None"}
+          </Select.Trigger>
+          <Select.Content>
+            {#each bodyTypes as bodyType (bodyType.value)}
+              <Select.Item value={bodyType.value}>{bodyType.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        {#if localRequest.bodyType === "json"}
+          <Button variant="ghost" size="sm" onclick={formatBody}>Format</Button>
+        {/if}
+      </div>
+      <div class="flex-1 p-2 overflow-hidden">
+        {#if localRequest.bodyType === "none"}
+          <div
+            class="flex items-center justify-center h-full text-muted-foreground text-sm"
+          >
+            This request does not have a body
+          </div>
+        {:else if localRequest.bodyType === "form-data" || localRequest.bodyType === "x-www-form-urlencoded"}
+          <div class="space-y-2 p-2">
+            {#each localRequest.formData as item, i (i)}
+              <div class="flex items-center gap-2">
+                <VariableInput
+                  class="flex-1"
+                  placeholder="Key"
+                  value={item.key}
+                  {variables}
+                  oninput={(value) => {
+                    localRequest.formData[i].key = value;
+                    onUpdate(localRequest);
+                  }}
+                />
+                <VariableInput
+                  class="flex-1"
+                  placeholder="Value"
+                  value={item.value}
+                  {variables}
+                  oninput={(value) => {
+                    localRequest.formData[i].value = value;
+                    onUpdate(localRequest);
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onclick={() => {
+                    localRequest.formData = localRequest.formData.filter(
+                      (_, idx) => idx !== i
+                    );
+                    onUpdate(localRequest);
+                  }}
+                >
+                  <XIcon class="size-4" />
+                </Button>
+              </div>
+            {/each}
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => {
+                localRequest.formData = [
+                  ...localRequest.formData,
+                  { key: "", value: "", type: "text", enabled: true },
+                ];
+                onUpdate(localRequest);
+              }}
+            >
+              Add Field
+            </Button>
+          </div>
+        {:else}
+          <CodeEditor
+            value={localRequest.body}
+            language={localRequest.bodyType}
+            placeholder="Enter request body..."
+            class="h-full"
+            onchange={handleBodyChange}
+          />
+        {/if}
+      </div>
+    </Tabs.Content>
+  </Tabs.Root>
 </div>

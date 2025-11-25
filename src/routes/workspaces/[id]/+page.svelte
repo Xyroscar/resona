@@ -21,9 +21,13 @@
     update_request,
     delete_request,
   } from "$lib/services/collections";
+  import { get_resolved_variables } from "$lib/services/variables";
   import type { Workspace } from "$lib/types/workspace";
   import type { Collection } from "$lib/types/collection";
   import type { Request, HttpMethod } from "$lib/types/request";
+  import type { Response } from "$lib/types/response";
+  import type { ResolvedVariable } from "$lib/types/variable";
+  import ResponsePanel from "$lib/components/response-panel.svelte";
 
   const { params } = $props<{ params: { id: string } }>();
 
@@ -31,6 +35,9 @@
   let collections = $state<Collection[]>([]);
   let standaloneRequests = $state<Request[]>([]);
   let selectedRequest = $state<Request | null>(null);
+  let response = $state<Response | null>(null);
+  let loading = $state(false);
+  let resolvedVariables = $state<ResolvedVariable[]>([]);
 
   let collectionDialogOpen = $state(false);
   let collectionDialogMode = $state<"create" | "edit">("create");
@@ -59,6 +66,7 @@
     workspace = await get_workspace(params.id);
     collections = await get_collections_by_workspace(params.id);
     standaloneRequests = await get_standalone_requests_by_workspace(params.id);
+    resolvedVariables = await get_resolved_variables(params.id, null, null);
   }
 
   function goBack() {
@@ -67,6 +75,7 @@
 
   function handleRequestSelect(request: Request) {
     selectedRequest = request;
+    response = null;
   }
 
   function handleCreateCollection() {
@@ -138,7 +147,9 @@
         url: "",
         headers: [],
         params: [],
+        bodyType: "none",
         body: "",
+        formData: [],
         collectionId: requestCollectionId,
         workspaceId: params.id,
       });
@@ -169,8 +180,59 @@
     deleteTarget = null;
   }
 
-  function handleSendRequest(request: Request) {
-    console.log("Sending request:", request);
+  async function handleSendRequest(request: Request) {
+    loading = true;
+    response = null;
+
+    // Simulate API request (will be replaced with actual Tauri call later)
+    const startTime = Date.now();
+
+    try {
+      // Mock response for now
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500 + Math.random() * 1000)
+      );
+
+      const mockBody = JSON.stringify(
+        {
+          success: true,
+          message: "This is a mock response",
+          data: {
+            id: 1,
+            name: "Example",
+            timestamp: new Date().toISOString(),
+          },
+        },
+        null,
+        2
+      );
+
+      response = {
+        status: 200,
+        statusText: "OK",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "X-Request-Id", value: crypto.randomUUID() },
+          { key: "Cache-Control", value: "no-cache" },
+        ],
+        body: mockBody,
+        contentType: "application/json",
+        duration: Date.now() - startTime,
+        size: new Blob([mockBody]).size,
+      };
+    } catch (error) {
+      response = {
+        status: 500,
+        statusText: "Error",
+        headers: [],
+        body: JSON.stringify({ error: "Request failed" }),
+        contentType: "application/json",
+        duration: Date.now() - startTime,
+        size: 0,
+      };
+    } finally {
+      loading = false;
+    }
   }
 
   async function handleUpdateRequest(request: Request) {
@@ -220,13 +282,21 @@
         </div>
       </header>
 
-      <div class="flex-1 overflow-hidden">
+      <div class="flex-1 overflow-hidden flex flex-col">
         {#if selectedRequest}
-          <RequestPanel
-            request={selectedRequest}
-            onSend={handleSendRequest}
-            onUpdate={handleUpdateRequest}
-          />
+          <div class="flex-1 min-h-0 flex flex-col">
+            <div class="flex-1 min-h-0 overflow-hidden">
+              <RequestPanel
+                request={selectedRequest}
+                variables={resolvedVariables}
+                onSend={handleSendRequest}
+                onUpdate={handleUpdateRequest}
+              />
+            </div>
+            <div class="h-[300px] min-h-[200px] border-t">
+              <ResponsePanel {response} {loading} />
+            </div>
+          </div>
         {:else}
           <Empty.Root class="flex h-full items-center justify-center">
             <Empty.Header>

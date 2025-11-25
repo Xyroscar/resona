@@ -8,6 +8,15 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [tailwindcss(), sveltekit()],
+  optimizeDeps: {
+    exclude: [
+      "svelte-codemirror-editor",
+      "codemirror",
+      "@codemirror/lang-json",
+      "@codemirror/lang-xml",
+      "@codemirror/lang-html",
+    ],
+  },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent vite from obscuring rust errors
@@ -18,7 +27,9 @@ export default defineConfig(async () => ({
     strictPort: true,
     host: host || false,
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
-    watch: { // 3. tell vite to ignore watching `src-tauri`
-    ignored: ["**/src-tauri/**"] }
-  }
+    watch: {
+      // 3. tell vite to ignore watching `src-tauri`
+      ignored: ["**/src-tauri/**"],
+    },
+  },
 }));
