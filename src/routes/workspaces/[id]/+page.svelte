@@ -10,7 +10,11 @@
   import RequestPanel from "$lib/components/request-panel.svelte";
   import * as Empty from "$lib/components/ui/empty/index.js";
   import SendIcon from "@lucide/svelte/icons/send";
+  import VariableIcon from "@lucide/svelte/icons/variable";
+  import SettingsIcon from "@lucide/svelte/icons/settings";
   import { get_workspace } from "$lib/services/workspaces";
+  import VariablesPanel from "$lib/components/variables-panel.svelte";
+  import SettingsDialog from "$lib/components/settings-dialog.svelte";
   import {
     get_collections_by_workspace,
     get_standalone_requests_by_workspace,
@@ -38,6 +42,9 @@
   let response = $state<Response | null>(null);
   let loading = $state(false);
   let resolvedVariables = $state<ResolvedVariable[]>([]);
+
+  let variablesOpen = $state(false);
+  let settingsOpen = $state(false);
 
   let collectionDialogOpen = $state(false);
   let collectionDialogMode = $state<"create" | "edit">("create");
@@ -280,6 +287,24 @@
             </h1>
           {/if}
         </div>
+        <div class="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onclick={() => (variablesOpen = true)}
+            aria-label="Variables"
+          >
+            <VariableIcon class="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onclick={() => (settingsOpen = true)}
+            aria-label="Settings"
+          >
+            <SettingsIcon class="size-4" />
+          </Button>
+        </div>
       </header>
 
       <div class="flex-1 overflow-hidden flex flex-col">
@@ -412,3 +437,15 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
+
+<VariablesPanel
+  bind:open={variablesOpen}
+  onOpenChange={(v) => (variablesOpen = v)}
+  workspaceId={params.id}
+  collectionId={selectedRequest?.collectionId ?? undefined}
+/>
+
+<SettingsDialog
+  bind:open={settingsOpen}
+  onOpenChange={(v) => (settingsOpen = v)}
+/>
