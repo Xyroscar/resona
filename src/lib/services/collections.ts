@@ -1,188 +1,279 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { Collection } from "$lib/types/collection";
-import type { Request, HttpMethod } from "$lib/types/request";
+import type { Request } from "$lib/types/request";
 
-const collections: Map<string, Collection> = new Map<string, Collection>([
-  [
-    "col-1",
-    {
-      id: "col-1",
-      name: "User API",
-      description: "User management endpoints",
-      workspaceId: "1",
-      requests: [
-        {
-          id: "req-1",
-          name: "Get Users",
-          method: "GET",
-          url: "https://api.example.com/users",
-          headers: [],
-          params: [],
-          bodyType: "none",
-          body: "",
-          formData: [],
-          collectionId: "col-1",
-          workspaceId: "1",
-        },
-        {
-          id: "req-2",
-          name: "Create User",
-          method: "POST",
-          url: "https://api.example.com/users",
-          headers: [
-            { key: "Content-Type", value: "application/json", enabled: true },
-          ],
-          params: [],
-          bodyType: "json",
-          body: '{"name": "John", "email": "john@example.com"}',
-          formData: [],
-          collectionId: "col-1",
-          workspaceId: "1",
-        },
-      ],
-    },
-  ],
-  [
-    "col-2",
-    {
-      id: "col-2",
-      name: "Products API",
-      description: "Product catalog endpoints",
-      workspaceId: "1",
-      requests: [
-        {
-          id: "req-3",
-          name: "List Products",
-          method: "GET",
-          url: "https://api.example.com/products",
-          headers: [],
-          params: [{ key: "limit", value: "10", enabled: true }],
-          bodyType: "none",
-          body: "",
-          formData: [],
-          collectionId: "col-2",
-          workspaceId: "1",
-        },
-      ],
-    },
-  ],
-]);
+// Collection types for Rust backend
+type RustCollection = {
+  id: string;
+  name: string;
+  description: string;
+  workspace_id: string;
+  created_at: string;
+  updated_at: string;
+};
 
-const standaloneRequests: Map<string, Request> = new Map<string, Request>([
-  [
-    "req-standalone-1",
-    {
-      id: "req-standalone-1",
-      name: "Health Check",
-      method: "GET",
-      url: "https://api.example.com/health",
-      headers: [],
-      params: [],
-      bodyType: "none",
-      body: "",
-      formData: [],
-      collectionId: null,
-      workspaceId: "1",
-    },
-  ],
-]);
+type CreateCollectionInput = {
+  name: string;
+  description: string;
+  workspace_id: string;
+};
+
+type UpdateCollectionInput = {
+  id: string;
+  name?: string;
+  description?: string;
+};
+
+// Request types for Rust backend
+type RustRequest = {
+  id: string;
+  name: string;
+  method: string;
+  url: string;
+  headers: { key: string; value: string; enabled: boolean }[];
+  params: { key: string; value: string; enabled: boolean }[];
+  body_type: string;
+  body: string;
+  form_data: {
+    key: string;
+    value: string;
+    item_type: string;
+    enabled: boolean;
+  }[];
+  collection_id: string | null;
+  workspace_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type CreateRequestInput = {
+  name: string;
+  method: string;
+  url: string;
+  headers: { key: string; value: string; enabled: boolean }[];
+  params: { key: string; value: string; enabled: boolean }[];
+  body_type: string;
+  body: string;
+  form_data: {
+    key: string;
+    value: string;
+    item_type: string;
+    enabled: boolean;
+  }[];
+  collection_id: string | null;
+  workspace_id: string;
+};
+
+type UpdateRequestInput = {
+  id: string;
+  name?: string;
+  method?: string;
+  url?: string;
+  headers?: { key: string; value: string; enabled: boolean }[];
+  params?: { key: string; value: string; enabled: boolean }[];
+  body_type?: string;
+  body?: string;
+  form_data?: {
+    key: string;
+    value: string;
+    item_type: string;
+    enabled: boolean;
+  }[];
+  collection_id?: string | null;
+};
+
+// Convert Rust collection to frontend Collection
+function toCollection(
+  rust: RustCollection,
+  requests: Request[] = []
+): Collection {
+  return {
+    id: rust.id,
+    name: rust.name,
+    description: rust.description,
+    workspaceId: rust.workspace_id,
+    requests,
+  };
+}
+
+// Convert Rust request to frontend Request
+function toRequest(rust: RustRequest): Request {
+  return {
+    id: rust.id,
+    name: rust.name,
+    method: rust.method as Request["method"],
+    url: rust.url,
+    headers: rust.headers,
+    params: rust.params,
+    bodyType: rust.body_type as Request["bodyType"],
+    body: rust.body,
+    formData: rust.form_data.map((f) => ({
+      key: f.key,
+      value: f.value,
+      type: f.item_type as "text" | "file",
+      enabled: f.enabled,
+    })),
+    collectionId: rust.collection_id,
+    workspaceId: rust.workspace_id,
+  };
+}
 
 export async function get_collections_by_workspace(
   workspaceId: string
 ): Promise<Collection[]> {
-  return [...collections.values()].filter((c) => c.workspaceId === workspaceId);
+  const rustCollections = await invoke<RustCollection[]>(
+    "get_collections_by_workspace",
+    { workspaceId }
+  );
+
+  const collections: Collection[] = [];
+  for (const rc of rustCollections) {
+    const rustRequests = await invoke<RustRequest[]>(
+      "get_requests_by_collection",
+      {
+        collectionId: rc.id,
+      }
+    );
+    collections.push(toCollection(rc, rustRequests.map(toRequest)));
+  }
+
+  return collections;
 }
 
 export async function get_collection(
   id: string
 ): Promise<Collection | undefined> {
-  return collections.get(id);
+  try {
+    const rc = await invoke<RustCollection>("get_collection", { id });
+    const rustRequests = await invoke<RustRequest[]>(
+      "get_requests_by_collection",
+      {
+        collectionId: id,
+      }
+    );
+    return toCollection(rc, rustRequests.map(toRequest));
+  } catch {
+    return undefined;
+  }
 }
 
-export async function create_collection(
-  collection: Omit<Collection, "id" | "requests">
-): Promise<Collection> {
-  const newCollection: Collection = {
-    ...collection,
-    id: crypto.randomUUID(),
-    requests: [],
+export async function create_collection(collection: {
+  name: string;
+  description: string;
+  workspaceId: string;
+}): Promise<Collection> {
+  const input: CreateCollectionInput = {
+    name: collection.name,
+    description: collection.description,
+    workspace_id: collection.workspaceId,
   };
-  collections.set(newCollection.id, newCollection);
-  return newCollection;
+  const rc = await invoke<RustCollection>("create_collection", { input });
+  return toCollection(rc, []);
 }
 
 export async function update_collection(
   id: string,
   updates: Partial<Pick<Collection, "name" | "description">>
 ): Promise<boolean> {
-  const collection = collections.get(id);
-  if (!collection) return false;
-
-  if (updates.name !== undefined) collection.name = updates.name;
-  if (updates.description !== undefined)
-    collection.description = updates.description;
-  return true;
+  try {
+    const input: UpdateCollectionInput = {
+      id,
+      name: updates.name,
+      description: updates.description,
+    };
+    await invoke<RustCollection>("update_collection", { input });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function delete_collection(id: string): Promise<boolean> {
-  return collections.delete(id);
+  try {
+    await invoke<void>("delete_collection", { id });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function get_standalone_requests_by_workspace(
   workspaceId: string
 ): Promise<Request[]> {
-  return [...standaloneRequests.values()].filter(
-    (r) => r.workspaceId === workspaceId
+  const rustRequests = await invoke<RustRequest[]>(
+    "get_standalone_requests_by_workspace",
+    { workspaceId }
   );
+  return rustRequests.map(toRequest);
 }
 
 export async function get_request(id: string): Promise<Request | undefined> {
-  for (const collection of collections.values()) {
-    const request = collection.requests.find((r) => r.id === id);
-    if (request) return request;
+  try {
+    const rr = await invoke<RustRequest>("get_request", { id });
+    return toRequest(rr);
+  } catch {
+    return undefined;
   }
-  return standaloneRequests.get(id);
 }
 
 export async function create_request(
   request: Omit<Request, "id">
 ): Promise<Request> {
-  const newRequest: Request = {
-    ...request,
-    id: crypto.randomUUID(),
+  const input: CreateRequestInput = {
+    name: request.name,
+    method: request.method,
+    url: request.url,
+    headers: request.headers,
+    params: request.params,
+    body_type: request.bodyType,
+    body: request.body,
+    form_data: request.formData.map((f) => ({
+      key: f.key,
+      value: f.value,
+      item_type: f.type,
+      enabled: f.enabled,
+    })),
+    collection_id: request.collectionId,
+    workspace_id: request.workspaceId,
   };
-
-  if (request.collectionId) {
-    const collection = collections.get(request.collectionId);
-    if (collection) {
-      collection.requests.push(newRequest);
-    }
-  } else {
-    standaloneRequests.set(newRequest.id, newRequest);
-  }
-
-  return newRequest;
+  const rr = await invoke<RustRequest>("create_request", { input });
+  return toRequest(rr);
 }
 
 export async function update_request(
   id: string,
   updates: Partial<Omit<Request, "id">>
 ): Promise<boolean> {
-  const request = await get_request(id);
-  if (!request) return false;
-
-  Object.assign(request, updates);
-  return true;
+  try {
+    const input: UpdateRequestInput = {
+      id,
+      name: updates.name,
+      method: updates.method,
+      url: updates.url,
+      headers: updates.headers,
+      params: updates.params,
+      body_type: updates.bodyType,
+      body: updates.body,
+      form_data: updates.formData?.map((f) => ({
+        key: f.key,
+        value: f.value,
+        item_type: f.type,
+        enabled: f.enabled,
+      })),
+      collection_id: updates.collectionId,
+    };
+    await invoke<RustRequest>("update_request", { input });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function delete_request(id: string): Promise<boolean> {
-  if (standaloneRequests.delete(id)) return true;
-
-  for (const collection of collections.values()) {
-    const index = collection.requests.findIndex((r) => r.id === id);
-    if (index !== -1) {
-      collection.requests.splice(index, 1);
-      return true;
-    }
+  try {
+    await invoke<void>("delete_request", { id });
+    return true;
+  } catch {
+    return false;
   }
-  return false;
 }

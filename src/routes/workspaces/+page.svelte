@@ -51,6 +51,8 @@
   let selectedWorkspace = $state<Workspace | null>(null);
   let workspaceName = $state("");
   let workspaceDescription = $state("");
+  let workspaceTags = $state<string[]>([]);
+  let tagInput = $state("");
 
   let settingsOpen = $state(false);
   let variablesOpen = $state(false);
@@ -64,6 +66,8 @@
     selectedWorkspace = null;
     workspaceName = "";
     workspaceDescription = "";
+    workspaceTags = [];
+    tagInput = "";
     dialogOpen = true;
   }
 
@@ -72,7 +76,21 @@
     selectedWorkspace = workspace;
     workspaceName = workspace.Name ?? "";
     workspaceDescription = workspace.Description ?? "";
+    workspaceTags = [...(workspace.Tags ?? [])];
+    tagInput = "";
     dialogOpen = true;
+  }
+
+  function addTag() {
+    const trimmed = tagInput.trim();
+    if (trimmed && !workspaceTags.includes(trimmed)) {
+      workspaceTags = [...workspaceTags, trimmed];
+      tagInput = "";
+    }
+  }
+
+  function removeTag(tag: string) {
+    workspaceTags = workspaceTags.filter((t) => t !== tag);
   }
 
   function openDuplicateDialog(workspace: Workspace) {
@@ -94,13 +112,14 @@
       await create_workspace({
         name: workspaceName,
         description: workspaceDescription,
-        tags: [],
+        tags: workspaceTags,
       });
     } else if (selectedWorkspace != null) {
       await update_workspace({
         id: selectedWorkspace.Id,
         name: workspaceName,
         description: workspaceDescription,
+        tags: workspaceTags,
       });
     }
 
@@ -282,6 +301,40 @@
           class="col-span-3"
           bind:value={workspaceDescription}
         />
+      </div>
+      <div class="grid grid-cols-4 items-start gap-4">
+        <Label for="workspace-tags" class="text-end pt-2">Tags</Label>
+        <div class="col-span-3 space-y-2">
+          <div class="flex gap-2">
+            <Input
+              id="workspace-tags"
+              placeholder="Add a tag..."
+              bind:value={tagInput}
+              onkeydown={(e) =>
+                e.key === "Enter" && (e.preventDefault(), addTag())}
+            />
+            <Button type="button" variant="outline" size="sm" onclick={addTag}>
+              Add
+            </Button>
+          </div>
+          {#if workspaceTags.length > 0}
+            <div class="flex flex-wrap gap-1">
+              {#each workspaceTags as tag}
+                <Badge variant="secondary" class="gap-1">
+                  {tag}
+                  <button
+                    type="button"
+                    class="ml-1 hover:text-destructive"
+                    onclick={() => removeTag(tag)}
+                    aria-label="Remove tag"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
       <Dialog.Footer>
         <Button type="submit">

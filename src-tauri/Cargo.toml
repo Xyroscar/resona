@@ -32,3 +32,8 @@ thiserror = "2"
 chrono = { version = "0.4", features = ["serde"] }
 directories = "5"
 
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "multipart"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+urlencoding = "2"
+

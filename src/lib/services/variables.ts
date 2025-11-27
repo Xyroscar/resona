@@ -1,93 +1,116 @@
+import { invoke } from "@tauri-apps/api/core";
 import type {
   Variable,
   VariableScope,
   ResolvedVariable,
 } from "$lib/types/variable";
 
-const variables: Map<string, Variable> = new Map<string, Variable>([
-  [
-    "var-1",
-    {
-      id: "var-1",
-      name: "BASE_URL",
-      value: "https://api.example.com",
-      scope: "global",
-      scopeId: null,
-      isSecret: false,
-      description: "Base URL for all API requests",
-    },
-  ],
-  [
-    "var-2",
-    {
-      id: "var-2",
-      name: "API_KEY",
-      value: "sk-1234567890",
-      scope: "global",
-      scopeId: null,
-      isSecret: true,
-      description: "API authentication key",
-    },
-  ],
-  [
-    "var-3",
-    {
-      id: "var-3",
-      name: "USER_ID",
-      value: "user-123",
-      scope: "workspace",
-      scopeId: "1",
-      isSecret: false,
-      description: "Default user ID for testing",
-    },
-  ],
-  [
-    "var-4",
-    {
-      id: "var-4",
-      name: "AUTH_TOKEN",
-      value: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
-      scope: "workspace",
-      scopeId: "1",
-      isSecret: true,
-      description: "Authentication token",
-    },
-  ],
-]);
+// Rust variable types
+type RustVariable = {
+  id: string;
+  name: string;
+  value: string;
+  scope: string;
+  scope_id: string | null;
+  is_secret: boolean;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
-export async function get_all_variables(): Promise<Variable[]> {
-  return [...variables.values()];
+type RustResolvedVariable = {
+  name: string;
+  value: string;
+  scope: string;
+  is_secret: boolean;
+};
+
+type CreateVariableInput = {
+  name: string;
+  value: string;
+  scope: string;
+  scope_id: string | null;
+  is_secret: boolean;
+  description: string | null;
+};
+
+type UpdateVariableInput = {
+  id: string;
+  name?: string;
+  value?: string;
+  is_secret?: boolean;
+  description?: string;
+};
+
+function toVariable(rust: RustVariable): Variable {
+  return {
+    id: rust.id,
+    name: rust.name,
+    value: rust.value,
+    scope: rust.scope as VariableScope,
+    scopeId: rust.scope_id,
+    isSecret: rust.is_secret,
+    description: rust.description ?? undefined,
+  };
+}
+
+function toResolvedVariable(rust: RustResolvedVariable): ResolvedVariable {
+  return {
+    name: rust.name,
+    value: rust.value,
+    scope: rust.scope as VariableScope,
+    isSecret: rust.is_secret,
+  };
+}
+
+export async function get_global_variables(): Promise<Variable[]> {
+  const vars = await invoke<RustVariable[]>("get_global_variables");
+  return vars.map(toVariable);
+}
+
+export async function get_workspace_variables(
+  workspaceId: string
+): Promise<Variable[]> {
+  const vars = await invoke<RustVariable[]>("get_workspace_variables", {
+    workspaceId,
+  });
+  return vars.map(toVariable);
+}
+
+export async function get_collection_variables(
+  collectionId: string
+): Promise<Variable[]> {
+  const vars = await invoke<RustVariable[]>("get_collection_variables", {
+    collectionId,
+  });
+  return vars.map(toVariable);
+}
+
+export async function get_request_variables(
+  requestId: string
+): Promise<Variable[]> {
+  const vars = await invoke<RustVariable[]>("get_request_variables", {
+    requestId,
+  });
+  return vars.map(toVariable);
 }
 
 export async function get_variables_by_scope(
   scope: VariableScope,
   scopeId: string | null
 ): Promise<Variable[]> {
-  return [...variables.values()].filter(
-    (v) => v.scope === scope && v.scopeId === scopeId
-  );
-}
-
-export async function get_global_variables(): Promise<Variable[]> {
-  return get_variables_by_scope("global", null);
-}
-
-export async function get_workspace_variables(
-  workspaceId: string
-): Promise<Variable[]> {
-  return get_variables_by_scope("workspace", workspaceId);
-}
-
-export async function get_collection_variables(
-  collectionId: string
-): Promise<Variable[]> {
-  return get_variables_by_scope("collection", collectionId);
-}
-
-export async function get_request_variables(
-  requestId: string
-): Promise<Variable[]> {
-  return get_variables_by_scope("request", requestId);
+  switch (scope) {
+    case "global":
+      return get_global_variables();
+    case "workspace":
+      return scopeId ? get_workspace_variables(scopeId) : [];
+    case "collection":
+      return scopeId ? get_collection_variables(scopeId) : [];
+    case "request":
+      return scopeId ? get_request_variables(scopeId) : [];
+    default:
+      return [];
+  }
 }
 
 export async function get_resolved_variables(
@@ -95,83 +118,64 @@ export async function get_resolved_variables(
   collectionId: string | null,
   requestId: string | null
 ): Promise<ResolvedVariable[]> {
-  const resolved: Map<string, ResolvedVariable> = new Map();
-
-  const globalVars = await get_global_variables();
-  for (const v of globalVars) {
-    resolved.set(v.name, {
-      name: v.name,
-      value: v.value,
-      scope: v.scope,
-      isSecret: v.isSecret,
-    });
-  }
-
-  const workspaceVars = await get_workspace_variables(workspaceId);
-  for (const v of workspaceVars) {
-    resolved.set(v.name, {
-      name: v.name,
-      value: v.value,
-      scope: v.scope,
-      isSecret: v.isSecret,
-    });
-  }
-
-  if (collectionId) {
-    const collectionVars = await get_collection_variables(collectionId);
-    for (const v of collectionVars) {
-      resolved.set(v.name, {
-        name: v.name,
-        value: v.value,
-        scope: v.scope,
-        isSecret: v.isSecret,
-      });
-    }
-  }
-
-  if (requestId) {
-    const requestVars = await get_request_variables(requestId);
-    for (const v of requestVars) {
-      resolved.set(v.name, {
-        name: v.name,
-        value: v.value,
-        scope: v.scope,
-        isSecret: v.isSecret,
-      });
-    }
-  }
-
-  return [...resolved.values()];
+  const vars = await invoke<RustResolvedVariable[]>("get_resolved_variables", {
+    workspaceId,
+    collectionId,
+    requestId,
+  });
+  return vars.map(toResolvedVariable);
 }
 
 export async function get_variable(id: string): Promise<Variable | undefined> {
-  return variables.get(id);
+  try {
+    const v = await invoke<RustVariable>("get_variable", { id });
+    return toVariable(v);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function create_variable(
   variable: Omit<Variable, "id">
 ): Promise<Variable> {
-  const newVariable: Variable = {
-    ...variable,
-    id: crypto.randomUUID(),
+  const input: CreateVariableInput = {
+    name: variable.name,
+    value: variable.value,
+    scope: variable.scope,
+    scope_id: variable.scopeId,
+    is_secret: variable.isSecret,
+    description: variable.description ?? null,
   };
-  variables.set(newVariable.id, newVariable);
-  return newVariable;
+  const v = await invoke<RustVariable>("create_variable", { input });
+  return toVariable(v);
 }
 
 export async function update_variable(
   id: string,
   updates: Partial<Omit<Variable, "id">>
 ): Promise<boolean> {
-  const variable = variables.get(id);
-  if (!variable) return false;
-
-  Object.assign(variable, updates);
-  return true;
+  try {
+    const input: UpdateVariableInput = {
+      id,
+      name: updates.name,
+      value: updates.value,
+      is_secret: updates.isSecret,
+      description: updates.description,
+    };
+    await invoke<RustVariable>("update_variable", { input });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function delete_variable(id: string): Promise<boolean> {
-  return variables.delete(id);
+  try {
+    await invoke<void>("delete_variable", { id });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function interpolate_variables(
