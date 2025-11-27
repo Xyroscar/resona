@@ -92,16 +92,16 @@
   async function handleDialogSubmit() {
     if (dialogMode === "create") {
       await create_workspace({
-        Name: workspaceName,
-        Description: workspaceDescription,
+        name: workspaceName,
+        description: workspaceDescription,
+        tags: [],
       });
     } else if (selectedWorkspace != null) {
-      const w: Workspace = {
-        Id: selectedWorkspace.Id,
-        Name: workspaceName,
-        Description: workspaceDescription,
-      };
-      await update_workspace(w);
+      await update_workspace({
+        id: selectedWorkspace.Id,
+        name: workspaceName,
+        description: workspaceDescription,
+      });
     }
 
     await loadWorkspaces();
@@ -109,8 +109,8 @@
   }
 
   async function handleDuplicate(options: DuplicateWorkspaceOptions) {
-    await duplicate_workspace(options, async (ws) => {
-      return await create_workspace(ws);
+    await duplicate_workspace(options, async (input) => {
+      return await create_workspace(input);
     });
     await loadWorkspaces();
   }
@@ -230,10 +230,12 @@
               >
                 {workspace.Description}
               </Card.Description>
-              {#if workspace.environment}
-                <Badge variant="secondary" class="w-fit mt-2"
-                  >{workspace.environment}</Badge
-                >
+              {#if workspace.Tags && workspace.Tags.length > 0}
+                <div class="flex flex-wrap gap-1 mt-2">
+                  {#each workspace.Tags as tag}
+                    <Badge variant="secondary" class="text-xs">{tag}</Badge>
+                  {/each}
+                </div>
               {/if}
             </Card.Header>
             <Card.Footer class="flex items-center justify-center gap-2">

@@ -32,7 +32,8 @@
 
   let newName = $state("");
   let newDescription = $state("");
-  let environment = $state("");
+  let tags = $state<string[]>([]);
+  let tagInput = $state("");
   let copyVariables = $state(true);
   let copySecrets = $state(false);
   let createSyncGroup = $state(false);
@@ -46,7 +47,7 @@
     if (open && sourceWorkspace) {
       newName = `${sourceWorkspace.Name} (Copy)`;
       newDescription = sourceWorkspace.Description;
-      environment = "";
+      tags = [...(sourceWorkspace.Tags ?? [])];
       syncGroupName = `${sourceWorkspace.Name} Environments`;
       loadVariables();
     }
@@ -76,6 +77,18 @@
     variablesToSync = [];
   }
 
+  function addTag() {
+    const trimmed = tagInput.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      tags = [...tags, trimmed];
+      tagInput = "";
+    }
+  }
+
+  function removeTag(tag: string) {
+    tags = tags.filter((t) => t !== tag);
+  }
+
   async function handleSubmit() {
     if (!sourceWorkspace) return;
 
@@ -85,7 +98,7 @@
         sourceWorkspaceId: sourceWorkspace.Id,
         newName,
         newDescription,
-        environment: environment || undefined,
+        tags,
         copyVariables,
         copySecrets,
         createSyncGroup,
@@ -143,14 +156,44 @@
           />
         </div>
 
-        <div class="grid grid-cols-4 items-center gap-4">
-          <Label for="environment" class="text-end">Environment</Label>
-          <Input
-            id="environment"
-            class="col-span-3"
-            placeholder="e.g., Development, Staging, Production"
-            bind:value={environment}
-          />
+        <div class="grid grid-cols-4 items-start gap-4">
+          <Label for="tags" class="text-end pt-2">Tags</Label>
+          <div class="col-span-3 space-y-2">
+            <div class="flex gap-2">
+              <Input
+                id="tags"
+                placeholder="Add a tag..."
+                bind:value={tagInput}
+                onkeydown={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addTag())}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onclick={addTag}
+              >
+                Add
+              </Button>
+            </div>
+            {#if tags.length > 0}
+              <div class="flex flex-wrap gap-1">
+                {#each tags as tag}
+                  <Badge variant="secondary" class="gap-1">
+                    {tag}
+                    <button
+                      type="button"
+                      class="ml-1 hover:text-destructive"
+                      onclick={() => removeTag(tag)}
+                      aria-label="Remove tag"
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </div>
       </div>
 
