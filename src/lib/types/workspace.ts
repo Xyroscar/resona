@@ -46,11 +46,47 @@ export type UpdateSyncGroupInput = {
   sync_secrets?: boolean;
 };
 
+export type Theme =
+  | "system"
+  | "light"
+  | "dark"
+  | "latte"
+  | "frappe"
+  | "macchiato"
+  | "mocha"
+  | "custom";
+
+export type ThemeColors = {
+  background: string;
+  foreground: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+  muted: string;
+  border: string;
+};
+
+export type CustomTheme = {
+  name: string;
+  colors: ThemeColors;
+};
+
 export type AppSettings = {
-  theme: "light" | "dark" | "system";
+  theme: Theme;
+  customThemes: CustomTheme[];
   defaultTimeout: number;
   followRedirects: boolean;
-  validateSSL: boolean;
+  validateSsl: boolean;
   maxHistoryItems: number;
   autoSaveRequests: boolean;
+};
+
+export type UpdateSettingsInput = {
+  theme?: Theme;
+  customThemes?: CustomTheme[];
+  defaultTimeout?: number;
+  followRedirects?: boolean;
+  validateSsl?: boolean;
+  maxHistoryItems?: number;
+  autoSaveRequests?: boolean;
 };

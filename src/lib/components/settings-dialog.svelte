@@ -7,12 +7,18 @@
   import { Label } from "$lib/components/ui/label/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import SettingsIcon from "@lucide/svelte/icons/settings";
-  import type { AppSettings } from "$lib/types/workspace";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import type { AppSettings, Theme } from "$lib/types/workspace";
   import {
     get_settings,
     update_settings,
     reset_settings,
   } from "$lib/services/settings";
+  import {
+    theme as themeStore,
+    themes,
+    themeLabels,
+  } from "$lib/theme-switcher";
   import { onMount } from "svelte";
 
   type Props = {
@@ -24,9 +30,10 @@
 
   let settings = $state<AppSettings>({
     theme: "system",
+    customThemes: [],
     defaultTimeout: 30000,
     followRedirects: true,
-    validateSSL: true,
+    validateSsl: true,
     maxHistoryItems: 100,
     autoSaveRequests: true,
   });
@@ -56,10 +63,12 @@
 
   async function handleReset() {
     settings = await reset_settings();
+    themeStore.applyTheme(settings.theme);
   }
 
-  function handleThemeChange(value: string) {
-    settings.theme = value as "light" | "dark" | "system";
+  async function handleThemeChange(newTheme: Theme) {
+    settings.theme = newTheme;
+    await themeStore.applyTheme(newTheme);
   }
 </script>
 
@@ -77,42 +86,69 @@
       </Dialog.Description>
     </Dialog.Header>
 
-    <Tabs.Root value="general" class="flex-1 overflow-hidden">
-      <Tabs.List class="grid w-full grid-cols-3">
+    <Tabs.Root value="appearance" class="flex-1 overflow-hidden">
+      <Tabs.List class="grid w-full grid-cols-4">
+        <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
         <Tabs.Trigger value="general">General</Tabs.Trigger>
         <Tabs.Trigger value="requests">Requests</Tabs.Trigger>
         <Tabs.Trigger value="advanced">Advanced</Tabs.Trigger>
       </Tabs.List>
 
       <div class="mt-4 overflow-auto max-h-[400px]">
-        <Tabs.Content value="general" class="space-y-4">
-          <div class="space-y-2">
-            <Label for="theme">Theme</Label>
-            <Select.Root
-              type="single"
-              value={settings.theme}
-              onValueChange={handleThemeChange}
-            >
-              <Select.Trigger id="theme" class="w-full">
-                {settings.theme === "light"
-                  ? "Light"
-                  : settings.theme === "dark"
-                    ? "Dark"
-                    : "System"}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="system">System</Select.Item>
-                <Select.Item value="light">Light</Select.Item>
-                <Select.Item value="dark">Dark</Select.Item>
-              </Select.Content>
-            </Select.Root>
+        <Tabs.Content value="appearance" class="space-y-4">
+          <div class="space-y-3">
+            <Label>Theme</Label>
             <p class="text-xs text-muted-foreground">
-              Choose the application color theme.
+              Select a color theme for the application.
             </p>
+            <div class="grid grid-cols-2 gap-2">
+              {#each themes as t}
+                <button
+                  type="button"
+                  class="flex items-center justify-between px-3 py-2 rounded-md border text-sm transition-colors {settings.theme ===
+                  t
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:bg-muted'}"
+                  onclick={() => handleThemeChange(t)}
+                >
+                  <span>{themeLabels[t]}</span>
+                  {#if settings.theme === t}
+                    <CheckIcon class="size-4 text-primary" />
+                  {/if}
+                </button>
+              {/each}
+            </div>
           </div>
 
           <Separator />
 
+          <div class="rounded-lg border p-4 bg-muted/30">
+            <h4 class="font-medium mb-2">Theme Preview</h4>
+            <p class="text-sm text-muted-foreground mb-3">
+              Preview of the current theme colors.
+            </p>
+            <div class="flex gap-2">
+              <div
+                class="size-8 rounded bg-background border"
+                title="Background"
+              ></div>
+              <div
+                class="size-8 rounded bg-foreground"
+                title="Foreground"
+              ></div>
+              <div class="size-8 rounded bg-primary" title="Primary"></div>
+              <div class="size-8 rounded bg-secondary" title="Secondary"></div>
+              <div class="size-8 rounded bg-muted" title="Muted"></div>
+              <div class="size-8 rounded bg-accent" title="Accent"></div>
+              <div
+                class="size-8 rounded bg-destructive"
+                title="Destructive"
+              ></div>
+            </div>
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="general" class="space-y-4">
           <div class="space-y-2">
             <Label for="maxHistory">History Items</Label>
             <Input
@@ -126,6 +162,8 @@
               Maximum number of request history items to keep.
             </p>
           </div>
+
+          <Separator />
 
           <div class="flex items-center justify-between">
             <div class="space-y-0.5">
@@ -208,15 +246,15 @@
             <button
               type="button"
               role="switch"
-              aria-checked={settings.validateSSL}
+              aria-checked={settings.validateSsl}
               aria-label="Toggle SSL validation"
-              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 {settings.validateSSL
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 {settings.validateSsl
                 ? 'bg-primary'
                 : 'bg-input'}"
-              onclick={() => (settings.validateSSL = !settings.validateSSL)}
+              onclick={() => (settings.validateSsl = !settings.validateSsl)}
             >
               <span
-                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform {settings.validateSSL
+                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform {settings.validateSsl
                   ? 'translate-x-5'
                   : 'translate-x-0'}"
               ></span>

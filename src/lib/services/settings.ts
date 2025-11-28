@@ -1,33 +1,16 @@
-import type { AppSettings } from "$lib/types/workspace";
-
-let settings: AppSettings = {
-  theme: "system",
-  defaultTimeout: 30000,
-  followRedirects: true,
-  validateSSL: true,
-  maxHistoryItems: 100,
-  autoSaveRequests: true,
-};
+import { invoke } from "@tauri-apps/api/core";
+import type { AppSettings, UpdateSettingsInput } from "$lib/types/workspace";
 
 export async function get_settings(): Promise<AppSettings> {
-  return { ...settings };
+  return invoke<AppSettings>("get_settings");
 }
 
 export async function update_settings(
-  updates: Partial<AppSettings>
+  input: UpdateSettingsInput
 ): Promise<AppSettings> {
-  settings = { ...settings, ...updates };
-  return { ...settings };
+  return invoke<AppSettings>("update_settings", { input });
 }
 
 export async function reset_settings(): Promise<AppSettings> {
-  settings = {
-    theme: "system",
-    defaultTimeout: 30000,
-    followRedirects: true,
-    validateSSL: true,
-    maxHistoryItems: 100,
-    autoSaveRequests: true,
-  };
-  return { ...settings };
+  return invoke<AppSettings>("reset_settings");
 }

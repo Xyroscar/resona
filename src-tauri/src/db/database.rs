@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use directories::ProjectDirs;
-use redb::Database as RedbDatabase;
+use redb::{Database as RedbDatabase, ReadableDatabase};
 
 use super::error::{DbError, DbResult};
 use super::tables::*;
