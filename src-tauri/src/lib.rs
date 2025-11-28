@@ -4,6 +4,7 @@ mod collections;
 mod db;
 mod http;
 mod requests;
+mod settings;
 mod variables;
 mod workspaces;
 
@@ -18,6 +19,7 @@ use requests::{
     create_request, delete_request, get_all_requests_by_workspace, get_request,
     get_requests_by_collection, get_standalone_requests_by_workspace, update_request,
 };
+use settings::{get_settings, reset_settings, update_settings};
 use variables::{
     create_variable, delete_variable, get_collection_variables, get_global_variables,
     get_request_variables, get_resolved_variables, get_variable, get_workspace_variables,
@@ -86,6 +88,10 @@ pub fn run() {
             delete_variable,
             // HTTP client
             send_http_request,
+            // Settings commands
+            get_settings,
+            update_settings,
+            reset_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

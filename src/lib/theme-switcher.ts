@@ -1,7 +1,10 @@
 import { writable } from "svelte/store";
 import { browser } from "$app/environment";
+import { get_settings, update_settings } from "$lib/services/settings";
+import type { Theme } from "$lib/types/workspace";
 
 export const themes = [
+  "system",
   "light",
   "dark",
   "latte",
@@ -9,46 +12,105 @@ export const themes = [
   "macchiato",
   "mocha",
 ] as const;
-type Theme = (typeof themes)[number];
+
+export const themeLabels: Record<Theme, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+  latte: "Latte (Catppuccin)",
+  frappe: "Frappe (Catppuccin)",
+  macchiato: "Macchiato (Catppuccin)",
+  mocha: "Mocha (Catppuccin)",
+  custom: "Custom",
+};
 
 const createThemeStore = () => {
-  const { subscribe, set } = writable<Theme>("light");
+  const { subscribe, set } = writable<Theme>("system");
 
-  function applyTheme(theme: Theme) {
+  function getSystemTheme(): "light" | "dark" {
     if (browser) {
-      document.documentElement.classList.remove(...themes);
-      document.documentElement.classList.add(theme);
-      localStorage.setItem("theme", theme);
-      set(theme);
-    }
-  }
-
-  function initializeTheme() {
-    if (browser) {
-      const storedTheme = localStorage.getItem("theme") as Theme | null;
-      const systemTheme: Theme = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches
+      return window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light";
-      const initialTheme = storedTheme ?? systemTheme;
-      applyTheme(initialTheme);
     }
+    return "light";
   }
 
-  function resetToSystem() {
+  function applyThemeToDOM(theme: Theme) {
     if (browser) {
-      localStorage.removeItem("theme");
-      initializeTheme();
+      const allThemes = [
+        "light",
+        "dark",
+        "latte",
+        "frappe",
+        "macchiato",
+        "mocha",
+      ];
+      document.documentElement.classList.remove(...allThemes);
+
+      const effectiveTheme = theme === "system" ? getSystemTheme() : theme;
+      if (effectiveTheme !== "custom") {
+        document.documentElement.classList.add(effectiveTheme);
+      }
     }
   }
 
-  return {
+  async function applyTheme(theme: Theme) {
+    applyThemeToDOM(theme);
+    set(theme);
+    try {
+      await update_settings({ theme });
+    } catch (e) {
+      console.error("Failed to save theme setting:", e);
+    }
+  }
+
+  async function initializeTheme() {
+    if (browser) {
+      try {
+        const settings = await get_settings();
+        const theme = settings.theme;
+        applyThemeToDOM(theme);
+        set(theme);
+      } catch (e) {
+        console.error("Failed to load theme setting:", e);
+        applyThemeToDOM("system");
+        set("system");
+      }
+
+      // Listen for system theme changes
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", () => {
+          // Re-apply if using system theme
+          const currentTheme = get(themeStore);
+          if (currentTheme === "system") {
+            applyThemeToDOM("system");
+          }
+        });
+    }
+  }
+
+  async function resetToSystem() {
+    await applyTheme("system");
+  }
+
+  const themeStore = {
     subscribe,
     applyTheme,
     initializeTheme,
     resetToSystem,
   };
+
+  return themeStore;
 };
+
+function get<T>(store: {
+  subscribe: (fn: (value: T) => void) => () => void;
+}): T {
+  let value: T;
+  store.subscribe((v) => (value = v))();
+  return value!;
+}
 
 export const theme = createThemeStore();
