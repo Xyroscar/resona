@@ -26,6 +26,7 @@
     delete_request,
   } from "$lib/services/collections";
   import { get_resolved_variables } from "$lib/services/variables";
+  import { send_request } from "$lib/services/http";
   import type { Workspace } from "$lib/types/workspace";
   import type { Collection } from "$lib/types/collection";
   import type { Request, HttpMethod } from "$lib/types/request";
@@ -191,50 +192,30 @@
     loading = true;
     response = null;
 
-    // Simulate API request (will be replaced with actual Tauri call later)
-    const startTime = Date.now();
-
     try {
-      // Mock response for now
-      await new Promise((resolve) =>
-        setTimeout(resolve, 500 + Math.random() * 1000)
-      );
+      const httpResponse = await send_request(request, resolvedVariables);
 
-      const mockBody = JSON.stringify(
-        {
-          success: true,
-          message: "This is a mock response",
-          data: {
-            id: 1,
-            name: "Example",
-            timestamp: new Date().toISOString(),
-          },
-        },
-        null,
-        2
-      );
+      const contentType =
+        httpResponse.headers.find((h) => h.key.toLowerCase() === "content-type")
+          ?.value ?? "text/plain";
 
       response = {
-        status: 200,
-        statusText: "OK",
-        headers: [
-          { key: "Content-Type", value: "application/json" },
-          { key: "X-Request-Id", value: crypto.randomUUID() },
-          { key: "Cache-Control", value: "no-cache" },
-        ],
-        body: mockBody,
-        contentType: "application/json",
-        duration: Date.now() - startTime,
-        size: new Blob([mockBody]).size,
+        status: httpResponse.status,
+        statusText: httpResponse.statusText,
+        headers: httpResponse.headers,
+        body: httpResponse.body,
+        contentType,
+        duration: httpResponse.timeMs,
+        size: httpResponse.sizeBytes,
       };
     } catch (error) {
       response = {
-        status: 500,
+        status: 0,
         statusText: "Error",
         headers: [],
-        body: JSON.stringify({ error: "Request failed" }),
-        contentType: "application/json",
-        duration: Date.now() - startTime,
+        body: error instanceof Error ? error.message : "Request failed",
+        contentType: "text/plain",
+        duration: 0,
         size: 0,
       };
     } finally {
