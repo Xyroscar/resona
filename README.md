@@ -40,6 +40,23 @@ bun run tauri dev
 bun run tauri build
 ```
 
+### Signing the application on macOS
+
+```bash
+export APPLE_SIGNING_IDENTITY="<YOUR_SIGNING_IDENTITY>"
+bun run tauri build
+```
+
+#### To get the signing identity
+
+```bash
+security find-identity -v -p codesigning
+```
+
+### Reason for not including appimage in the targets
+
+Due to an issue with linuxdeploy on my system, I wasn't able to build the appimage so I removed it from the targets. 
+
 ### Project Structure
 
 ```
